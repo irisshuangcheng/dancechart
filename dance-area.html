@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <style>
+        .chart-container {
+            max-width: 1050px;
+            margin: 0 auto;
+            /* auto centers the div */
+            font-family: 'Times New Roman', Times, serif;
+        }
+
+        svg {
+            /* border: 2px solid purple; */
+            overflow: visible;
+        }
+
+        svg .y.axis .tick line {
+            display:block;
+            stroke: dimgrey;
+        }
+
+        svg .y.axis .tick text {
+            font-size: 14px;
+            fill: dimgrey;
+        }
+
+        svg .x.axis .tick line {
+            display:block;
+            stroke: dimgrey;
+        }
+        svg .x.axis .tick text {
+            font-size: 14px;
+            fill: dimgrey;
+        }
+
+        svg .y.axis .domain {
+            display: none;
+        }
+
+        svg .x.axis .domain {
+            display: none;
+        }
+
+        svg .label {
+            font-size: 20px;
+            font-family: 'Times New Roman', Times, serif;
+
+        }
+
+        h1 {
+            margin-left: 30px;
+            margin-bottom: 2px;
+            font-size: 28px;
+        }
+
+        .source {
+            margin-top: 60px;
+            margin-left: 30px;
+            margin-right: 350px;
+            color: dimgrey;
+
+        }
+
+        .source2 {
+            margin-top: 10px;
+            margin-left: 30px;
+            margin-right: 350px;
+            color: dimgrey;
+        }
+
+        .highlight {
+            text-decoration: underline;
+            color: rgb(241, 124, 103);
+        }
+
+
+    </style>
+</head>
+
+<body>
+    <div class="chart-container">
+        <h1 class="headline">
+            Healthcare by income: <span class='highlight'>in 2020</span>
+        </h1>
+
+        <svg width="1050px" height="500px">
+
+        </svg>
+        <p class="source"> Note: The income measure used here is disposable income, 
+            which is defined as market income plus cash transfers from the government and noncash benefits like food stamps and public housing. 
+            It excludes taxes, out-of-pocket medical spending, insurance premiums and other expenses. 
+            There have been small changes in the census questionnaire between the two survey dates. 
+            </p>
+        <p class ="source2">Source: Current Population Survey, replicated by Iris Cheng</p>
+    </div>
+</body>
+
+<!-- add your script blocks at the end -->
+<script src="https://d3js.org/d3.v6.min.js"></script>
+<!-- we're using d3 version 6 (the latest version) for all out work -->
+
+<script>
+    console.log(d3)
+    let width = 800;
+    let height = 500;
+
+    let svg = d3.select("body").select("svg")
+
+    d3.csv("healthcare-disposable-inc.csv").then(function (data) {
+        console.log("loaded")
+        console.log(data)
+
+        // data.forEach(d => {
+        //     d.pop = +d.pop * 1000; //units are in thousands
+        //     d.percent = +d.percent / 100; //units need to be in decimals 
+        //     d.group = d.group.replace(".", ""); //remove pesky period
+        // })
+
+        let sel_cols = [
+            "Medicaid",
+            "Medicare",
+            "Medicare+Medicaid",
+            "Employer",
+            "Uninsured",
+            "Direct Purchase",
+            "Subsidized Exchange",
+            "CHIP",
+            "Military",
+            "Other"]
+
+        let sel_colors = [
+            "#f44336", // "Medicaid",
+            "#FF9800", // "Medicare",
+            "#FDD835", // "Medicare+Medicaid",
+            "#FFF8E1", // "Employer",
+            "#26A69A", // "Uninsured",
+            "#4DD0E1", // "Direct Purchase",
+            "#F06292", // "Subsidized Exchange",
+            "#5C6BC0", // "CHIP",
+            "#90A4AE", // "Military",
+            "#E0E0E0"  // "Other"
+        ]
+        let year_state = 2020;
+
+        let data09 = data.filter(d => d.year == 2009)
+        let data20 = data.filter(d => d.year == 2020)
+
+        let series2020 = d3.stack().keys(sel_cols)(data20);
+        let series2009 = d3.stack().keys(sel_cols)(data09);
+
+
+        let margin = { top: 10, right: 10, bottom: 10, left: 30 };
+
+        // let y = d3.scaleBand()
+        //     .domain(data19.map(d => d.group).reverse()) //d3 extent
+        //     .paddingInner(.05)
+        //     // .range([margin.left, width - margin.right])
+        //     .range([height - margin.bottom, margin.top])
+        let color = d3.scaleOrdinal()
+            .domain(sel_cols)
+            .range(sel_colors)
+
+        let x = d3.scaleLinear()
+            .domain([0, 100])
+            .range([margin.left, width])
+
+        let y = d3.scaleLinear()
+            .domain([0, 1])
+            .range([height - margin.bottom, margin.top])
+
+        let xAxisSettings = d3.axisBottom(x)
+            .tickSize(6)
+            .tickPadding(6)
+            .ticks(10)
+            .tickValues([5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95]) //
+            .tickFormat(d3.format(".0f"))
+
+        let xAxis = svg.append("g")
+            .attr("class", "x axis")
+            .call(xAxisSettings)
+            .call(g => g.selectAll(".domain").remove())
+            .attr("transform", `translate(0,${height - margin.bottom})`)
+
+
+        let yAxisSettings = d3.axisLeft(y)
+            .tickValues([.2, .4, .6, .8])
+            // .ticks(5)
+            .tickSize(5)
+            .tickPadding(4)
+            .tickFormat(d3.format(".0%"))
+
+        let yAxis = svg
+            .append("g")
+            .attr("class", "y axis")
+            .call(yAxisSettings)
+            .call(g => g.selectAll(".domain").remove())
+            .attr("transform", "translate(30,0)") // the position of y axis
+
+        // stacked area
+        let area = d3.area()
+            .x(d => x(d.data.Percentile))
+            .y0(d => y(d[0]))
+            .y1(d => y(d[1]))
+        
+        let hed = d3.select(".headline")
+
+        svg.append("g")
+            .selectAll("path")
+            .data(series2020)
+            .join("path")
+            .attr("class", d =>  {
+                console.log(d)
+                return d.key
+            })
+            .attr("fill", d => color(d.key))
+            .attr("d", area)
+
+        // Add Legend
+        let legend_cols = [
+            "Medicare+Medicaid",
+            "Direct Purchase",
+            "Subsidized Exchange",
+            "CHIP",
+            "Military",
+            "Other"]
+
+        let legend_colors = [
+            "#FDD835", // "Medicare+Medicaid",
+            "#4DD0E1", // "Direct Purchase",
+            "#F06292", // "Subsidized Exchange",
+            "#5C6BC0", // "CHIP",
+            "#90A4AE", // "Military",
+            "#E0E0E0"] // "Other"
+        
+        var colorlegend = d3.scaleOrdinal()
+            .domain(legend_cols)
+            .range(legend_colors);
+
+        var size = 20
+        svg.selectAll("mydots")
+            .data(legend_cols )
+            .enter()
+            .append("rect")
+                .attr("x", 810)
+                .attr("y", function(d,i){ return 10 + i*(size+5)}) // 100 is where the first dot appears. 25 is the distance between dots
+                .attr("width", size)
+                .attr("height", size)
+                .style("fill", function(d){ return colorlegend(d)})
+
+            // Add one dot in the legend for each name.
+        svg.selectAll("mylabels")
+            .data(legend_cols)
+            .enter()
+            .append("text")
+                .attr("x", 830 + size*1.2)
+                .attr("y", function(d,i){ return 10 + i*(size+5) + (size/2)}) // 100 is where the first dot appears. 25 is the distance between dots
+                .style("fill", function(d){ return colorlegend(d)})
+                .text(function(d){ return d})
+                .attr("text-anchor", "left")
+                .style("alignment-baseline", "middle")
+
+        //label
+        svg.append("text")
+            .attr("class", "label")
+            .attr("x", 500)
+            .attr("y", 250)
+            .text("Employer")
+
+        svg.append("text")
+            .attr("class", "label")
+            .attr("x", 80)
+            .attr("y", 450)
+            .text("Medicaid")
+            .style("fill", "white")
+
+        svg.append("text")
+            .attr("class", "label")
+            .attr("x", 40)
+            .attr("y", 300)
+            .text("Medicare")
+            .style("fill", "white")
+        
+        svg.append("text")
+            .attr("class", "label")
+            .attr("x", 100)
+            .attr("y", 85)
+            .text("Uninsured")
+            .style("fill", "white")
+
+        // Label at the bottom
+        svg.append("text")
+            .attr("class", "axis-label")
+            .attr("x", width / 2)
+            .attr("y", height + 40)
+            .text("Income Percentile")
+            .attr("text-anchor", "middle") //text-anchor controls positioning for SVG text
+            .attr("font-family", 'Times New Roman')
+            .attr("font-size", "22px")
+
+        svg.append("text")
+            .attr("class", "axis-label")
+            .attr("x", width - 30)
+            .attr("y", height + 40)
+            .text("higher income")
+            .attr("text-anchor", "end")
+
+        svg.append("text")
+            .attr("class", "axis-label")
+            .attr("x", 30)
+            .attr("y", height + 40)
+            .text("lower income")
+            .attr("text-anchor", "start")
+        
+        // svg.append("text")
+        //     .attr("class", "note")
+        //     .attr("x", 30)
+        //     .attr("y", height + 100)
+        //     .text("
+        //     // .attr("text-anchor", "start")
+        //     .style("width", "50px")
+        //     .style("fill", "dimgrey")
+        // let divlabel = d3.select(".chart-container").append("div")
+        //     .attr("class", "annotation")
+        //     .html("Mail delays rose after <strong>Dejoy<strong> issued administration")
+        //     // .style("left", "500px")
+        //     .style("width", "275px")
+
+        // DANCE
+        function update() {
+            console.log("update")
+            console.log("old year state " + year_state);
+
+            if (year_state == 2020) {
+                year_state = 2009
+                dance(series2009)
+                hed.html("Healthcare by income: <span class='highlight'>in 2009</span>")
+
+                // change label position
+                svg.append("text")
+                    .attr("class", "label")
+                    .attr("x", 600)
+                    .attr("y", 270)
+                    .text("Employer")
+
+                svg.append("text")
+                    .attr("class", "label")
+                    .attr("x", 100)
+                    .attr("y", 450)
+                    .text("Medicaid")
+                    .style("fill", "white")
+
+                svg.append("text")
+                    .attr("class", "label")
+                    .attr("x", 70)
+                    .attr("y", 330)
+                    .text("Medicare")
+                    .style("fill", "white")
+
+                svg.append("text")
+                    .attr("class", "label")
+                    .attr("x", 60)
+                    .attr("y", 140)
+                    .text("Uninsured")
+                    .style("fill", "white")
+
+            } else {
+                year_state = 2020
+                dance(series2020)
+                hed.html("Healthcare by income: <span class='highlight'>in 2020</span>")
+
+                svg.append("text")
+                    .attr("class", "label")
+                    .attr("x", 500)
+                    .attr("y", 250)
+                    .text("Employer")
+
+                svg.append("text")
+                    .attr("class", "label")
+                    .attr("x", 80)
+                    .attr("y", 450)
+                    .text("Medicaid")
+                    .style("fill", "white")
+
+                svg.append("text")
+                    .attr("class", "label")
+                    .attr("x", 40)
+                    .attr("y", 300)
+                    .text("Medicare")
+                    .style("fill", "white")
+                
+                svg.append("text")
+                    .attr("class", "label")
+                    .attr("x", 100)
+                    .attr("y", 85)
+                    .text("Uninsured")
+                    .style("fill", "white")
+
+            }
+            console.log("new year state " + year_state);
+        }
+
+
+        function dance(filtered_data) {
+            let area = d3.area()
+            .x(d => x(d.data.Percentile))
+            .y0(d => y(d[0]))
+            .y1(d => y(d[1]))
+        
+            let hed = d3.select(".headline")
+
+            svg.append("g")
+            .selectAll("path")
+            .data(filtered_data, d => d.group)
+            .join("path")
+            .attr("class", d =>  {
+                console.log(d)
+                return d.key
+            })
+            .attr("fill", d => color(d.key))
+            .attr("d", area)
+            .transition()
+            .duration(500)
+            .ease(d3.easeLinear)
+
+        }
+        
+        
+        var timer = d3.interval(update, 2000) //in milliseconds
+        // https://github.com/d3/d3-timer
+
+        // stop function
+        // bars.on('click', () => {
+        //     timer.stop();
+        // })
+
+
+    
+
+    })
+
+</script>
