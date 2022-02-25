@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <!-- set styles on the top -->
+    <style>
+        .chart-container {
+            max-width: 1050px;
+            /* border: 2px solid red; */
+            margin: 0 auto;
+            /* auto centers the div */
+            font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+            display: grid;
+            /* grid-template-columns: 300px 180px 180px 180px 180px 180px; */
+            grid-template-columns: 280px 280px 280px 280px;
+            /* grid-template-columns: auto; */
+            grid-template-rows: auto;
+            /* grid-template-areas: 
+                "headline headline headline headline headline headline"
+                "Atlanta Austin Chicago NewYork Washington Cleveland"; */
+            grid-template-areas: 
+                "headline headline headline headline"
+                "Atlanta Austin Chicago NewYork";
+        }
+
+        svg {
+            border: 2px solid purple;
+            overflow: visible;
+        }
+
+        h1 {
+            /* border: 2px solid green; */
+        }
+
+        .x .tick line {
+            stroke: rgba(0, 0, 0, .2);
+        }
+
+        .y .tick line {
+            stroke: rgba(0, 0, 0, .2);
+        }
+
+        .x .domain {
+            display: none;
+        }
+
+        .y .domain {
+            display: none;
+        }
+
+        .y .tick text {
+            font-size: 14px;
+            fill: #333;
+
+        }
+
+        .x .tick text {
+            font-size: 14px;
+            fill: #333;
+        }
+
+        .headline {
+            grid-area: headline;
+        }
+        .Atlanta {
+            grid-area: Atlanta;
+            font-weight: bold;
+            font-size: 20px;
+            color: orange;
+        }
+        .Austin {
+            grid-area: Austin;
+            font-weight: bold;
+            font-size: 20px;
+            color: orange;
+        }
+        .Chicago {
+            grid-area: Chicago;
+            font-weight: bold;
+            font-size: 20px;
+            color: orange;
+        }
+        .NewYork {
+            grid-area: NewYork;
+            font-weight: bold;
+            font-size: 20px;
+            color: orange;
+        }
+        .Washington {
+            grid-area: Washington;
+            font-weight: bold;
+            font-size: 20px;
+            color: orange;
+        }
+        .Cleveland {
+            grid-area: Cleveland;
+            font-weight: bold;
+            font-size: 20px;
+            color: orange;
+        }
+
+    </style>
+</head>
+
+<body>
+    <div class="chart-container">
+        <h1 class="headline">
+            The number of available homes has fallen steeply in metros across the country
+        </h1>
+
+        <svg width="1500px" height="1000px"></svg>
+
+        <div class="Atlanta">Atlanta</div>
+        <div class="Austin">Austin</div>
+        <div class="Chicago">Chicago</div>
+        <div class="NewYork">New York</div>
+        <!-- <div class="Washington">Washington</div> -->
+        <!-- <div class="Cleveland">Cleveland</div> -->
+    </div>
+</body>
+
+<script src="https://d3js.org/d3.v6.min.js"></script>
+<!-- we're using d3 version 6 (the latest version) for all out work -->
+
+<script>
+    let svg = d3.select("body").select("svg")
+
+    d3.json("nat-inventory.json").then(function (raw) {
+        console.log(raw)
+        raw.forEach(function (row) {
+            row.date = new Date( row.date + "T00:00")
+            row.inventory = +row.inventory
+        })
+        function small_multiple(city, left_margin) {
+            let width = 200;
+            let height = 400;
+            let margin = { top: 30, right: 10, bottom: 10, left: left_margin};
+
+            let data = raw.filter(d => d.msa == city)
+
+            let x = d3.scaleTime()
+                .domain(d3.extent(data.map(function (d) { return d.date }))) //d3 extent
+                .range([margin.left, width - margin.right + margin.left])
+
+            //in this case we need to use scaleLinear because we're dealin linear data
+            let y = d3.scaleLinear()
+                .domain(d3.extent(data.map(function (d) { return d.inventory })))
+                // .domain([0,70000])
+                .range([height - margin.bottom, margin.top])
+
+            let yAxisSettings = d3.axisLeft(y) //set axis to the left
+                .ticks(5) //approx how many ticks, the function will not necesarily give you that number
+                .tickSize(-width) //size of tick lines
+                .tickFormat(d3.format(".0f")) //what format do you want https://github.com/d3/d3-format 
+                .tickPadding(10) //distance from tick labels to tick marks
+
+            let xAxisSettings = d3.axisBottom(x)
+                .ticks(2)
+                .tickSize(10)
+                .tickPadding(10)
+
+            let bg = svg.append("rect")
+                .attr("x", margin.left)
+                .attr("y", 0)
+                .attr("width", width)
+                .attr("height", height)
+                .style("fill", "rgba(0,0,0,.04)")
+
+            //adding to the axes to our chart
+            let xAxisTicks = svg.append("g")
+                .attr("class", "x axis") //give each axis a class
+                .call(xAxisSettings)
+                .attr("transform", `translate(0,${height - margin.bottom})`)
+
+            let yAxisTicks = svg.append("g")
+                .attr("class", "y axis")
+                .call(yAxisSettings)
+                .attr("transform", `translate(${margin.left},0)`)
+
+            let line = d3.line() //define a line function
+                .defined(d => !isNaN(d.inventory))
+                .x(function (d) { return x(d.date) }) //accessing date 
+                .y(function (d) { return y(d.inventory) }) //accesssing value 
+
+            let line_path = svg.append("path") //Add a grouping element. It's useful to organize svg elements. https://developer.mozilla.org/en-US/docs/Web/SVG/Element/g
+                .attr("class", city) // Give lines a class name.
+                .attr("d", line(data))
+                .style("fill", "none")
+                .style("stroke", "darkblue")
+                .style("stroke-width", 1.8)
+        }
+
+        small_multiple("Atlanta-Sandy Springs-Marietta", 0)
+        small_multiple("Austin-Round Rock-San Marcos", 280)
+        small_multiple("Chicago-Joliet-Naperville", 560)
+        small_multiple("New York-Northern New Jersey-Long Island", 840)
+
+        // small_multiple("Atlanta-Sandy Springs-Marietta", 0)
+        // small_multiple("Austin-Round Rock-San Marcos", 180)
+        // small_multiple("Chicago-Joliet-Naperville", 360)
+        // small_multiple("New York-Northern New Jersey-Long Island", 540)
+        // small_multiple("Washington-Arlington-Alexandria", 720)
+        // small_multiple("Cleveland-Elyria-Mentor", 900)
+
+     
+    })
+
+</script>
